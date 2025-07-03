@@ -1,0 +1,116 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Terraform Resource Development Patterns
+
+This guide explains the common patterns used for developing resources in the AOS-CX Terraform provider.
+
+## Resource Structure Template
+
+Every resource follows this standard structure (see [aoscx/resource_vlan.go](mdc:aoscx/resource_vlan.go) as reference):
+
+```go
+func resource<Name>() *schema.Resource {
+    return &schema.Resource{
+        Description:   "Resource description",
+        CreateContext: resource<Name>Create,
+        ReadContext:   resource<Name>Read,
+        UpdateContext: resource<Name>Update,
+        DeleteContext: resource<Name>Delete,
+        Schema: map[string]*schema.Schema{
+            // Define schema fields here
+        },
+    }
+}
+```
+
+## CRUD Operations Pattern
+
+### Create Function
+```go
+func resource<Name>Create(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+    sw := m.(*aoscxgo.Client)
+    // 1. Extract data from ResourceData
+    // 2. Create aoscxgo object
+    // 3. Call Create() method
+    // 4. Handle errors and warnings
+    // 5. Set resource ID
+    // 6. Call Read to refresh state
+}
+```
+
+### Read Function
+```go
+func resource<Name>Read(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+    sw := m.(*aoscxgo.Client)
+    // 1. Create aoscxgo object with ID
+    // 2. Call Get() method
+    // 3. Handle not found (set ID to "")
+    // 4. Update ResourceData with current state
+}
+```
+
+### Update Function
+```go
+func resource<Name>Update(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+    sw := m.(*aoscxgo.Client)
+    // 1. Get current object
+    // 2. Check for changes using d.HasChange()
+    // 3. Update object fields
+    // 4. Call Update() method
+    // 5. Call Read to refresh state
+}
+```
+
+### Delete Function
+```go
+func resource<Name>Delete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+    sw := m.(*aoscxgo.Client)
+    // 1. Create aoscxgo object with ID
+    // 2. Call Delete() method
+    // 3. Handle errors
+    // 4. Set ID to "" on success
+}
+```
+
+## Error Handling Pattern
+
+Common error handling for aoscxgo RequestError:
+```go
+if err != nil {
+    if err.(*aoscxgo.RequestError).StatusCode == "404 Not Found" {
+        // Handle not found
+    } else if err.(*aoscxgo.RequestError).StatusCode != "204 No Content" {
+        // Handle other errors
+        diags = append(diags, diag.Errorf("Error message: %s", err.(*aoscxgo.RequestError).StatusCode)...)
+    }
+}
+```
+
+## Schema Validation
+
+Use validation functions for constrained values:
+```go
+"admin_state": &schema.Schema{
+    Type:         schema.TypeString,
+    ValidateFunc: validation.StringInSlice([]string{"up", "down"}, true),
+},
+```
+
+## Client Access Pattern
+
+Always cast the meta interface to aoscxgo.Client:
+```go
+sw := m.(*aoscxgo.Client)
+```
+
+## Resource Registration
+
+Add new resources to the ResourcesMap in [aoscx/provider.go](mdc:aoscx/provider.go):
+```go
+ResourcesMap: map[string]*schema.Resource{
+    "aoscx_new_resource": resourceNewResource(),
+},
+```

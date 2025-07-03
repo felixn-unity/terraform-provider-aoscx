@@ -1,0 +1,168 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Testing and Debugging Guide
+
+This guide covers testing and debugging practices for the AOS-CX Terraform provider.
+
+## Testing Strategy
+
+### Unit Testing
+- Test each resource's CRUD operations
+- Mock aoscxgo client for isolated testing
+- Test error handling scenarios
+- Validate schema definitions
+
+### Integration Testing
+- Test against real AOS-CX switches
+- Verify end-to-end functionality
+- Test resource dependencies
+- Validate state management
+
+### Test Switch Configuration
+For testing, you need:
+- AOS-CX switch with REST API enabled
+- Admin credentials
+- Network connectivity to switch
+
+## Debugging Techniques
+
+### Terraform Debug Logging
+Enable detailed logging:
+```bash
+export TF_LOG=DEBUG
+export TF_LOG_PATH=./terraform.log
+terraform apply
+```
+
+### Provider Debug Output
+Add debug statements in resource functions:
+```go
+log.Printf("[DEBUG] Creating VLAN with ID: %d", vlan_id)
+```
+
+### Common Issues and Solutions
+
+#### Authentication Failures
+- Verify hostname, username, password in provider configuration
+- Check network connectivity to switch
+- Ensure REST API is enabled on switch
+- Verify TLS settings (provider disables verification)
+
+#### Resource Not Found Errors
+- Check if resource exists on switch
+- Verify resource ID format
+- Ensure proper error handling for 404 responses
+
+#### State Drift Issues
+- Implement proper Read functions to detect external changes
+- Handle cases where resources are modified outside Terraform
+- Use appropriate refresh mechanisms
+
+## Testing Workflow
+
+### 1. Local Development Testing
+```bash
+# Build provider
+go build -o terraform-provider-aoscx
+
+# Create test configuration
+cat > test.tf << EOF
+terraform {
+  required_providers {
+    aoscx = {
+      source = "local/aruba/aoscx"
+      version = "1.0.0"
+    }
+  }
+}
+
+provider "aoscx" {
+  hostname = "10.0.0.1"
+  username = "admin"
+  password = "password"
+}
+
+resource "aoscx_vlan" "test" {
+  vlan_id = 100
+  name = "test-vlan"
+}
+EOF
+
+# Test the configuration
+terraform init
+terraform plan
+terraform apply
+```
+
+### 2. Resource Testing Checklist
+- [ ] Create operation works correctly
+- [ ] Read operation retrieves current state
+- [ ] Update operation modifies existing resource
+- [ ] Delete operation removes resource
+- [ ] Error handling works for all scenarios
+- [ ] Schema validation prevents invalid input
+- [ ] Resource ID is set correctly
+- [ ] State is properly synchronized
+
+### 3. Provider Testing
+- [ ] Provider configuration validates correctly
+- [ ] Connection to switch is established
+- [ ] Authentication works
+- [ ] All resources are registered
+- [ ] Error messages are helpful
+
+## Debugging Common Resource Issues
+
+### VLAN Resources ([aoscx/resource_vlan.go](mdc:aoscx/resource_vlan.go))
+- Check VLAN ID range (1-4094)
+- Verify VLAN doesn't already exist
+- Ensure admin_state is "up" or "down"
+
+### Interface Resources
+- Verify interface name format (e.g., "1/1/1")
+- Check interface exists on switch
+- Validate admin_state values
+
+### L2/L3 Interface Resources
+- Ensure base interface exists
+- Check VLAN dependencies for L2 interfaces
+- Verify IP configuration for L3 interfaces
+
+## Test Data Management
+
+### Test Switch Preparation
+- Use dedicated test switch or VLAN range
+- Document test resources for cleanup
+- Implement proper teardown procedures
+
+### State File Management
+- Use separate state files for testing
+- Backup production state files
+- Clean up test state files after testing
+
+## Performance Testing
+
+### Resource Creation Performance
+- Test bulk resource creation
+- Monitor API call frequency
+- Optimize for switch API limits
+
+### State Refresh Performance
+- Test large configurations
+- Monitor read operation performance
+- Implement efficient state queries
+
+## Continuous Integration
+
+### Automated Testing
+- Set up CI pipeline for provider testing
+- Use containerized test environments
+- Implement automated switch configuration
+
+### Test Coverage
+- Aim for high test coverage
+- Test error paths and edge cases
+- Validate all resource combinations

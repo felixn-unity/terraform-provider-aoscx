@@ -1,0 +1,107 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Development Workflow and Common Tasks
+
+This guide covers the development workflow and common tasks for the AOS-CX Terraform provider.
+
+## Project Setup
+
+### Prerequisites
+- Go 1.24.1 (latest version as defined in [go.mod](mdc:go.mod))
+- Terraform >= 0.13.x
+- Access to AOS-CX switch for testing
+
+### Dependencies
+The project uses:
+- `github.com/hashicorp/terraform-plugin-sdk/v2` - Latest Terraform plugin SDK
+- `github.com/felixn-unity/aoscxgo` - AOS-CX REST API client library
+
+## Build and Test
+
+### Building the Provider
+```bash
+go build -o terraform-provider-aoscx
+```
+
+### Running Tests
+```bash
+go test ./...
+```
+
+### Local Development Testing
+1. Build the provider locally
+2. Place in Terraform plugins directory
+3. Create test configuration files
+4. Run `terraform init`, `terraform plan`, `terraform apply`
+
+## Adding New Resources
+
+### Step 1: Create Resource File
+Create `aoscx/resource_<name>.go` following the pattern in [aoscx/resource_vlan.go](mdc:aoscx/resource_vlan.go)
+
+### Step 2: Register Resource
+Add to ResourcesMap in [aoscx/provider.go](mdc:aoscx/provider.go):
+```go
+"aoscx_<name>": resource<Name>(),
+```
+
+### Step 3: Create Documentation
+Add documentation file in `docs/resources/<name>.md`
+
+### Step 4: Test Resource
+- Write unit tests
+- Test with actual AOS-CX switch
+- Verify CRUD operations work correctly
+
+## Code Quality Standards
+
+### Error Handling
+- Always handle errors from aoscxgo operations
+- Use appropriate diagnostic levels (Error, Warning)
+- Check for specific HTTP status codes (404, 204, etc.)
+
+### Resource State Management
+- Always call Read after Create/Update operations
+- Set resource ID to empty string when resource doesn't exist
+- Use d.HasChange() to detect field changes in Update operations
+
+### Schema Definition
+- Use appropriate schema types (TypeString, TypeInt, TypeBool)
+- Add validation functions for constrained values
+- Set Required/Optional flags correctly
+- Use ForceNew for immutable fields
+
+## Common Patterns
+
+### Connection Setup
+Provider configuration is handled in [aoscx/provider.go](mdc:aoscx/provider.go):
+- TLS verification is disabled for switch connections
+- Authentication uses username/password
+- Connection is established in providerConfigure function
+
+### Resource Identification
+- Use appropriate field as resource ID (usually numeric ID or name)
+- Convert to string using strconv.Itoa() for numeric IDs
+- Store ID using d.SetId()
+
+### State Synchronization
+- Read operations should update all schema fields from actual switch state
+- Handle cases where resource no longer exists on switch
+- Use d.Set() to update resource data
+
+## Documentation Standards
+
+### Resource Documentation
+Each resource should have documentation in `docs/resources/` following the pattern:
+- Description of what the resource manages
+- Example usage
+- Argument reference
+- Attribute reference
+
+### Code Comments
+- Document complex logic
+- Explain AOS-CX specific behaviors
+- Note any limitations or special considerations
