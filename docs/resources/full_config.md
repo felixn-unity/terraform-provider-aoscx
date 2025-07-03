@@ -8,9 +8,274 @@ description: |-
 
 # aoscx_full_config (Resource)
 
-Resource to manage full running-config on AOS-CX switches.
+The `aoscx_full_config` resource manages the complete running configuration on AOS-CX switches. This resource allows you to apply entire configuration files or configuration snippets to the switch, providing a way to manage complex configurations that may not be covered by individual resources.
 
+⚠️ **Warning**: This resource manages the entire switch configuration and should be used with caution. It can override existing configurations and may disrupt network connectivity if not used properly.
 
+## Example Usage
+
+### Basic Configuration from File
+
+```terraform
+resource "aoscx_full_config" "switch_config" {
+  filename = "switch-config.txt"
+  config   = file("${path.module}/configs/switch-base-config.txt")
+}
+```
+
+### Configuration with Template
+
+```terraform
+resource "aoscx_full_config" "templated_config" {
+  filename = "switch-template.txt"
+  config = templatefile("${path.module}/templates/switch.tftpl", {
+    hostname      = "switch-01"
+    mgmt_ip       = "10.0.0.10"
+    mgmt_gateway  = "10.0.0.1"
+    snmp_community = var.snmp_community
+  })
+}
+```
+
+### Configuration with Diff Tracking
+
+```terraform
+resource "aoscx_full_config" "monitored_config" {
+  filename = "production-config.txt"
+  config   = file("${path.module}/configs/production.txt")
+  diff     = "enabled"
+}
+```
+
+### Backup and Restore Configuration
+
+```terraform
+# Create a backup configuration
+resource "aoscx_full_config" "backup" {
+  filename = "backup-${formatdate("YYYY-MM-DD-hhmm", timestamp())}.txt"
+  config   = "" # Empty config to trigger backup
+}
+
+# Apply a known good configuration
+resource "aoscx_full_config" "restore" {
+  filename = "known-good-config.txt"
+  config   = file("${path.module}/configs/known-good.txt")
+  
+  # Depend on backup completion
+  depends_on = [aoscx_full_config.backup]
+}
+```
+
+## Argument Reference
+
+The following arguments are supported:
+
+### Required
+
+- `filename` (String) - The filename for the configuration. This is used as an identifier and for any backup operations. Should be descriptive and include appropriate file extension (e.g., `.txt`, `.cfg`).
+
+### Optional
+
+- `config` (String) - The configuration content to apply to the switch. This can be:
+  - Complete switch configuration
+  - Configuration snippet
+  - Empty string for backup operations
+  - Content from files using `file()` function
+  - Templated content using `templatefile()` function
+
+- `diff` (String) - Controls difference tracking between applied and running configuration. Valid values:
+  - `"enabled"` - Track configuration differences
+  - `"disabled"` - Disable difference tracking (default)
+
+## Attribute Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+- `id` (String) - The ID of this resource, which corresponds to the filename.
+
+## Import
+
+Full configurations can be imported using their filename:
+
+```bash
+terraform import aoscx_full_config.example "switch-config.txt"
+```
+
+## Configuration Examples
+
+### Initial Switch Setup
+
+```terraform
+resource "aoscx_full_config" "initial_setup" {
+  filename = "initial-setup.txt"
+  config = <<-EOT
+    hostname ${var.switch_hostname}
+    
+    interface mgmt
+        ip static ${var.mgmt_ip}/24
+        ip static gateway ${var.mgmt_gateway}
+        no shutdown
+    
+    ip route 0.0.0.0/0 ${var.mgmt_gateway}
+    
+    snmp-server community ${var.snmp_community} rw
+    
+    ntp server ${var.ntp_server}
+    
+    logging ${var.syslog_server}
+  EOT
+}
+```
+
+### VLAN Configuration Block
+
+```terraform
+locals {
+  vlan_config = join("\n", [
+    for vlan_id, vlan_name in var.vlans :
+    "vlan ${vlan_id}\n    name ${vlan_name}"
+  ])
+}
+
+resource "aoscx_full_config" "vlan_setup" {
+  filename = "vlan-configuration.txt"
+  config   = local.vlan_config
+  diff     = "enabled"
+}
+```
+
+### Security Configuration
+
+```terraform
+resource "aoscx_full_config" "security_hardening" {
+  filename = "security-config.txt"
+  config = templatefile("${path.module}/templates/security.tftpl", {
+    admin_password     = var.admin_password
+    enable_password    = var.enable_password
+    banner_message     = var.login_banner
+    session_timeout    = var.session_timeout
+    allowed_ssh_hosts  = var.allowed_ssh_hosts
+  })
+}
+```
+
+### Multi-Part Configuration
+
+```terraform
+# Base system configuration
+resource "aoscx_full_config" "base_system" {
+  filename = "01-base-system.txt"
+  config   = file("${path.module}/configs/base-system.txt")
+}
+
+# Network configuration
+resource "aoscx_full_config" "networking" {
+  filename = "02-networking.txt"
+  config   = file("${path.module}/configs/networking.txt")
+  
+  depends_on = [aoscx_full_config.base_system]
+}
+
+# Security configuration
+resource "aoscx_full_config" "security" {
+  filename = "03-security.txt"
+  config   = file("${path.module}/configs/security.txt")
+  
+  depends_on = [aoscx_full_config.networking]
+}
+```
+
+## Template Example
+
+Create a template file `templates/switch.tftpl`:
+
+```
+hostname ${hostname}
+
+interface mgmt
+    ip static ${mgmt_ip}/24
+    ip static gateway ${mgmt_gateway}
+    no shutdown
+
+%{ for vlan_id, vlan_name in vlans ~}
+vlan ${vlan_id}
+    name ${vlan_name}
+%{ endfor ~}
+
+%{ for interface, config in interfaces ~}
+interface ${interface}
+    description ${config.description}
+    no shutdown
+%{ if config.vlan_mode == "access" ~}
+    vlan access ${config.vlan_id}
+%{ endif ~}
+%{ if config.vlan_mode == "trunk" ~}
+    vlan trunk allowed ${join(",", config.allowed_vlans)}
+%{ endif ~}
+%{ endfor ~}
+
+snmp-server community ${snmp_community} rw
+ntp server ${ntp_server}
+```
+
+## Best Practices
+
+### Configuration Management
+
+1. **Version Control**: Store configuration files in version control
+2. **Backup First**: Always create backups before applying new configurations
+3. **Test Environments**: Test configurations in non-production environments first
+4. **Incremental Changes**: Use smaller, focused configuration blocks when possible
+
+### File Organization
+
+```
+configs/
+├── base/
+│   ├── system.txt
+│   ├── interfaces.txt
+│   └── security.txt
+├── templates/
+│   ├── switch.tftpl
+│   └── vlan.tftpl
+└── environments/
+    ├── production.txt
+    ├── staging.txt
+    └── development.txt
+```
+
+### Error Handling
+
+```terraform
+resource "aoscx_full_config" "safe_config" {
+  filename = "safe-config.txt"
+  config   = file("${path.module}/configs/production.txt")
+  
+  lifecycle {
+    # Prevent accidental destruction
+    prevent_destroy = true
+    
+    # Create before destroy for safety
+    create_before_destroy = true
+  }
+}
+```
+
+## Notes
+
+- **Backup Recommended**: Always backup current configuration before applying changes
+- **Network Impact**: Configuration changes may cause brief network interruptions
+- **Validation**: Validate configuration syntax before applying
+- **Dependencies**: Consider resource dependencies when applying multiple configurations
+- **Rollback Plan**: Have a rollback plan ready for critical changes
+- **Testing**: Test configurations thoroughly in lab environments
+
+## Related Resources
+
+- [`aoscx_vlan`](vlan.md) - For individual VLAN management
+- [`aoscx_interface`](interface.md) - For individual interface management
+- [`aoscx_l2_interface`](l2_interface.md) - For Layer 2 interface configuration
+- [`aoscx_l3_interface`](l3_interface.md) - For Layer 3 interface configuration
 
 <!-- schema generated by tfplugindocs -->
 ## Schema

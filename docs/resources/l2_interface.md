@@ -3,14 +3,175 @@
 page_title: "aoscx_l2_interface Resource - terraform-provider-aoscx"
 subcategory: ""
 description: |-
-  Resource to configure interface Layer2 attributes on AOS-CX switches.
+  Resource to configure Layer 2 interface attributes on AOS-CX switches.
 ---
 
 # aoscx_l2_interface (Resource)
 
-Resource to configure interface Layer2 attributes on AOS-CX switches.
+The `aoscx_l2_interface` resource manages Layer 2 interface configurations on AOS-CX switches. This resource configures VLAN membership, access/trunk modes, and other Layer 2 switching properties.
 
+## Example Usage
 
+### Access Port Configuration
+
+```terraform
+resource "aoscx_vlan" "production" {
+  vlan_id = 100
+  name    = "production-vlan"
+}
+
+resource "aoscx_l2_interface" "server_port" {
+  interface   = "1/1/10"
+  admin_state = "up"
+  description = "Production server connection"
+  vlan_mode   = "access"
+  vlan_tag    = aoscx_vlan.production.vlan_id
+}
+```
+
+### Trunk Port Configuration
+
+```terraform
+resource "aoscx_vlan" "production" {
+  vlan_id = 100
+  name    = "production-vlan"
+}
+
+resource "aoscx_vlan" "development" {
+  vlan_id = 200
+  name    = "development-vlan"
+}
+
+resource "aoscx_l2_interface" "trunk_port" {
+  interface        = "1/1/20"
+  admin_state      = "up"
+  description      = "Trunk to access switch"
+  vlan_mode        = "trunk"
+  vlan_ids         = [aoscx_vlan.production.vlan_id, aoscx_vlan.development.vlan_id]
+  native_vlan_tag  = true
+}
+```
+
+### Trunk Port with All VLANs
+
+```terraform
+resource "aoscx_l2_interface" "uplink_trunk" {
+  interface          = "1/1/1"
+  admin_state        = "up"
+  description        = "Uplink trunk - all VLANs allowed"
+  vlan_mode          = "trunk"
+  trunk_allowed_all  = true
+  native_vlan_tag    = false
+}
+```
+
+### Multiple Access Ports
+
+```terraform
+locals {
+  server_ports = {
+    "1/1/11" = { vlan = 100, description = "Web server" }
+    "1/1/12" = { vlan = 100, description = "App server" }
+    "1/1/13" = { vlan = 200, description = "Database server" }
+    "1/1/14" = { vlan = 300, description = "Backup server" }
+  }
+}
+
+resource "aoscx_l2_interface" "server_ports" {
+  for_each = local.server_ports
+  
+  interface   = each.key
+  admin_state = "up"
+  description = each.value.description
+  vlan_mode   = "access"
+  vlan_tag    = each.value.vlan
+}
+```
+
+## Argument Reference
+
+The following arguments are supported:
+
+### Required
+
+- `interface` (String) - The name of the interface to configure. Must match an existing physical interface (e.g., `"1/1/1"`, `"1/1/2"`).
+
+### Optional
+
+- `admin_state` (String) - Administrative state of the interface. Valid values:
+  - `"up"` - Interface is administratively enabled
+  - `"down"` - Interface is administratively disabled
+- `description` (String) - Description of the interface Layer 2 configuration.
+- `vlan_mode` (String) - VLAN mode for the interface. Valid values:
+  - `"access"` - Interface is an access port (single VLAN)
+  - `"trunk"` - Interface is a trunk port (multiple VLANs)
+- `vlan_tag` (Number) - VLAN ID for access ports. Required when `vlan_mode` is `"access"`.
+- `vlan_ids` (Set of Number) - Set of VLAN IDs allowed on trunk ports. Used when `vlan_mode` is `"trunk"`.
+- `trunk_allowed_all` (Boolean) - When `true`, allows all VLANs on trunk port. Conflicts with `vlan_ids`.
+- `native_vlan_tag` (Boolean) - When `true`, tags the native VLAN on trunk ports. Default is `false`.
+
+## Attribute Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+- `id` (String) - The ID of this resource, which corresponds to the interface name.
+
+## Import
+
+L2 interfaces can be imported using their interface name:
+
+```bash
+terraform import aoscx_l2_interface.example "1/1/1"
+```
+
+## Configuration Examples
+
+### Guest Network Access Port
+
+```terraform
+resource "aoscx_vlan" "guest" {
+  vlan_id = 500
+  name    = "guest-network"
+}
+
+resource "aoscx_l2_interface" "guest_ports" {
+  count = 8
+  
+  interface   = "1/1/${20 + count.index}"
+  admin_state = "up"
+  description = "Guest access port ${count.index + 1}"
+  vlan_mode   = "access"
+  vlan_tag    = aoscx_vlan.guest.vlan_id
+}
+```
+
+### Inter-Switch Link (ISL)
+
+```terraform
+resource "aoscx_l2_interface" "isl" {
+  interface         = "1/1/49"
+  admin_state       = "up"
+  description       = "Inter-switch link to building B"
+  vlan_mode         = "trunk"
+  trunk_allowed_all = true
+  native_vlan_tag   = true
+}
+```
+
+## Notes
+
+- The interface must exist as a physical interface before configuring Layer 2 properties
+- Access ports can only belong to one VLAN at a time
+- Trunk ports can carry multiple VLANs but require careful VLAN configuration
+- Use `trunk_allowed_all = true` for maximum flexibility on trunk ports
+- Native VLAN configuration affects untagged traffic handling
+- Changing `vlan_mode` between access and trunk may require recreating the resource
+
+## Related Resources
+
+- [`aoscx_interface`](interface.md) - Configure basic physical interface properties
+- [`aoscx_vlan`](vlan.md) - Create and manage VLANs
+- [`aoscx_l3_interface`](l3_interface.md) - Configure Layer 3 interface settings
 
 <!-- schema generated by tfplugindocs -->
 ## Schema

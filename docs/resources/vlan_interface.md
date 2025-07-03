@@ -3,14 +3,238 @@
 page_title: "aoscx_vlan_interface Resource - terraform-provider-aoscx"
 subcategory: ""
 description: |-
-  Resource to configure Vlan interface attributes on AOS-CX switches.
+  Resource to configure VLAN interface attributes on AOS-CX switches.
 ---
 
 # aoscx_vlan_interface (Resource)
 
-Resource to configure Vlan interface attributes on AOS-CX switches.
+The `aoscx_vlan_interface` resource manages VLAN interface configurations on AOS-CX switches. VLAN interfaces (also known as SVIs - Switched Virtual Interfaces) provide Layer 3 routing capabilities for VLANs, enabling inter-VLAN routing and serving as default gateways for VLAN networks.
 
+## Example Usage
 
+### Basic VLAN Interface
+
+```terraform
+resource "aoscx_vlan" "production" {
+  vlan_id = 100
+  name    = "production-vlan"
+}
+
+resource "aoscx_vlan_interface" "production_gateway" {
+  vlan_id     = aoscx_vlan.production.vlan_id
+  admin_state = "up"
+  description = "Production network gateway"
+  ipv4        = ["10.100.1.1/24"]
+}
+```
+
+### VLAN Interface with Multiple IP Addresses
+
+```terraform
+resource "aoscx_vlan" "servers" {
+  vlan_id = 200
+  name    = "server-vlan"
+}
+
+resource "aoscx_vlan_interface" "server_gateway" {
+  vlan_id     = aoscx_vlan.servers.vlan_id
+  admin_state = "up"
+  description = "Server network with multiple subnets"
+  ipv4        = [
+    "10.200.1.1/24",    # Primary subnet
+    "10.200.2.1/24"     # Secondary subnet
+  ]
+}
+```
+
+### IPv6 VLAN Interface
+
+```terraform
+resource "aoscx_vlan" "ipv6_network" {
+  vlan_id = 300
+  name    = "ipv6-vlan"
+}
+
+resource "aoscx_vlan_interface" "ipv6_gateway" {
+  vlan_id     = aoscx_vlan.ipv6_network.vlan_id
+  admin_state = "up"
+  description = "IPv6 network gateway"
+  ipv6        = [
+    "2001:db8:300::1/64",
+    "fe80::1/64"
+  ]
+}
+```
+
+### Dual-Stack VLAN Interface
+
+```terraform
+resource "aoscx_vlan" "dual_stack" {
+  vlan_id = 400
+  name    = "dual-stack-vlan"
+}
+
+resource "aoscx_vlan_interface" "dual_stack_gateway" {
+  vlan_id     = aoscx_vlan.dual_stack.vlan_id
+  admin_state = "up"
+  description = "Dual-stack IPv4/IPv6 gateway"
+  ipv4        = ["192.168.4.1/24"]
+  ipv6        = ["2001:db8:400::1/64"]
+}
+```
+
+### VLAN Interface in Custom VRF
+
+```terraform
+resource "aoscx_vlan" "customer_a" {
+  vlan_id = 500
+  name    = "customer-a-vlan"
+}
+
+resource "aoscx_vlan_interface" "customer_a_gateway" {
+  vlan_id     = aoscx_vlan.customer_a.vlan_id
+  admin_state = "up"
+  description = "Customer A network gateway"
+  ipv4        = ["172.16.5.1/24"]
+  vrf         = "customer-a"
+}
+```
+
+### Multiple VLAN Interfaces
+
+```terraform
+locals {
+  vlans = {
+    100 = { name = "production", ip = "10.100.1.1/24", desc = "Production network" }
+    200 = { name = "development", ip = "10.200.1.1/24", desc = "Development network" }
+    300 = { name = "staging", ip = "10.300.1.1/24", desc = "Staging network" }
+  }
+}
+
+resource "aoscx_vlan" "networks" {
+  for_each = local.vlans
+  
+  vlan_id = each.key
+  name    = each.value.name
+}
+
+resource "aoscx_vlan_interface" "gateways" {
+  for_each = local.vlans
+  
+  vlan_id     = aoscx_vlan.networks[each.key].vlan_id
+  admin_state = "up"
+  description = each.value.desc
+  ipv4        = [each.value.ip]
+}
+```
+
+## Argument Reference
+
+The following arguments are supported:
+
+### Required
+
+- `vlan_id` (Number) - The VLAN ID for which to create the interface. The corresponding VLAN should already exist.
+
+### Optional
+
+- `admin_state` (String) - Administrative state of the VLAN interface. Valid values:
+  - `"up"` - Interface is administratively enabled
+  - `"down"` - Interface is administratively disabled
+- `description` (String) - Description of the VLAN interface.
+- `ipv4` (List of String) - List of IPv4 addresses in CIDR notation (e.g., `["192.168.1.1/24"]`). Multiple addresses can be assigned.
+- `ipv6` (Set of String) - Set of IPv6 addresses in CIDR notation (e.g., `["2001:db8::1/64"]`). Multiple IPv6 addresses are supported.
+- `vrf` (String) - VRF (Virtual Routing and Forwarding) instance name. If not specified, the interface belongs to the default VRF.
+
+## Attribute Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+- `id` (String) - The ID of this resource, which corresponds to the VLAN ID.
+
+## Import
+
+VLAN interfaces can be imported using their VLAN ID:
+
+```bash
+terraform import aoscx_vlan_interface.example 100
+```
+
+## Configuration Examples
+
+### Inter-VLAN Routing Setup
+
+```terraform
+# Create VLANs
+resource "aoscx_vlan" "users" {
+  vlan_id = 10
+  name    = "users"
+}
+
+resource "aoscx_vlan" "servers" {
+  vlan_id = 20
+  name    = "servers"
+}
+
+# Create VLAN interfaces for routing
+resource "aoscx_vlan_interface" "users_gateway" {
+  vlan_id     = aoscx_vlan.users.vlan_id
+  admin_state = "up"
+  description = "User network gateway"
+  ipv4        = ["192.168.10.1/24"]
+}
+
+resource "aoscx_vlan_interface" "servers_gateway" {
+  vlan_id     = aoscx_vlan.servers.vlan_id
+  admin_state = "up"
+  description = "Server network gateway"
+  ipv4        = ["192.168.20.1/24"]
+}
+
+# Configure access ports
+resource "aoscx_l2_interface" "user_ports" {
+  count = 24
+  
+  interface   = "1/1/${count.index + 1}"
+  admin_state = "up"
+  description = "User port ${count.index + 1}"
+  vlan_mode   = "access"
+  vlan_tag    = aoscx_vlan.users.vlan_id
+}
+```
+
+### Guest Network with Isolated VLAN
+
+```terraform
+resource "aoscx_vlan" "guest" {
+  vlan_id = 999
+  name    = "guest-network"
+}
+
+resource "aoscx_vlan_interface" "guest_gateway" {
+  vlan_id     = aoscx_vlan.guest.vlan_id
+  admin_state = "up"
+  description = "Guest network gateway (isolated)"
+  ipv4        = ["172.16.99.1/24"]
+  vrf         = "guest-vrf"  # Isolated VRF for security
+}
+```
+
+## Notes
+
+- The VLAN must exist before creating the VLAN interface
+- VLAN interfaces enable Layer 3 routing for the associated VLAN
+- Each VLAN can have only one VLAN interface
+- IP addresses assigned to VLAN interfaces typically serve as default gateways for hosts in the VLAN
+- VRF assignment affects routing table membership and inter-VRF communication
+- VLAN interfaces are automatically created in some AOS-CX configurations when IP addresses are assigned
+- Deleting a VLAN interface removes Layer 3 routing capability for that VLAN
+
+## Related Resources
+
+- [`aoscx_vlan`](vlan.md) - Create and manage VLANs
+- [`aoscx_l3_interface`](l3_interface.md) - Configure Layer 3 interface settings
+- [`aoscx_l2_interface`](l2_interface.md) - Configure VLAN membership on physical interfaces
 
 <!-- schema generated by tfplugindocs -->
 ## Schema

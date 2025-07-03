@@ -3,14 +3,184 @@
 page_title: "aoscx_l3_interface Resource - terraform-provider-aoscx"
 subcategory: ""
 description: |-
-  Resource to configure interface Layer3 attributes on AOS-CX switches.
+  Resource to configure Layer 3 interface attributes on AOS-CX switches.
 ---
 
 # aoscx_l3_interface (Resource)
 
-Resource to configure interface Layer3 attributes on AOS-CX switches.
+The `aoscx_l3_interface` resource manages Layer 3 interface configurations on AOS-CX switches. This resource configures IP addressing, routing properties, and VRF membership for interfaces that operate at Layer 3.
 
+## Example Usage
 
+### Basic IPv4 Interface
+
+```terraform
+resource "aoscx_l3_interface" "management" {
+  interface   = "1/1/1"
+  admin_state = "up"
+  description = "Management interface"
+  ipv4        = ["192.168.1.1/24"]
+}
+```
+
+### Interface with Multiple IPv4 Addresses
+
+```terraform
+resource "aoscx_l3_interface" "multi_ip" {
+  interface   = "1/1/2"
+  admin_state = "up"
+  description = "Interface with multiple IPs"
+  ipv4        = [
+    "10.1.1.1/24",
+    "10.1.1.100/24"
+  ]
+}
+```
+
+### IPv6 Interface
+
+```terraform
+resource "aoscx_l3_interface" "ipv6_interface" {
+  interface   = "1/1/3"
+  admin_state = "up"
+  description = "IPv6 enabled interface"
+  ipv6        = [
+    "2001:db8:1::1/64",
+    "fe80::1/64"
+  ]
+}
+```
+
+### Dual-Stack Interface
+
+```terraform
+resource "aoscx_l3_interface" "dual_stack" {
+  interface   = "1/1/4"
+  admin_state = "up"
+  description = "Dual-stack IPv4/IPv6 interface"
+  ipv4        = ["192.168.10.1/24"]
+  ipv6        = ["2001:db8:10::1/64"]
+}
+```
+
+### Interface in Custom VRF
+
+```terraform
+resource "aoscx_l3_interface" "vrf_interface" {
+  interface   = "1/1/5"
+  admin_state = "up"
+  description = "Interface in custom VRF"
+  ipv4        = ["172.16.1.1/24"]
+  vrf         = "customer-a"
+}
+```
+
+### Point-to-Point Link
+
+```terraform
+resource "aoscx_l3_interface" "p2p_link" {
+  interface   = "1/1/10"
+  admin_state = "up"
+  description = "Point-to-point link to router"
+  ipv4        = ["10.0.0.1/30"]
+}
+```
+
+## Argument Reference
+
+The following arguments are supported:
+
+### Required
+
+- `interface` (String) - The name of the interface to configure. Must match an existing physical interface (e.g., `"1/1/1"`, `"1/1/2"`).
+
+### Optional
+
+- `admin_state` (String) - Administrative state of the interface. Valid values:
+  - `"up"` - Interface is administratively enabled
+  - `"down"` - Interface is administratively disabled
+- `description` (String) - Description of the Layer 3 interface configuration.
+- `ipv4` (List of String) - List of IPv4 addresses in CIDR notation (e.g., `["192.168.1.1/24"]`). Multiple addresses can be assigned to the same interface.
+- `ipv6` (Set of String) - Set of IPv6 addresses in CIDR notation (e.g., `["2001:db8::1/64"]`). Supports multiple IPv6 addresses per interface.
+- `vrf` (String) - VRF (Virtual Routing and Forwarding) instance name. If not specified, the interface belongs to the default VRF.
+
+## Attribute Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+- `id` (String) - The ID of this resource, which corresponds to the interface name.
+
+## Import
+
+L3 interfaces can be imported using their interface name:
+
+```bash
+terraform import aoscx_l3_interface.example "1/1/1"
+```
+
+## Configuration Examples
+
+### Server Network Gateway
+
+```terraform
+resource "aoscx_vlan" "servers" {
+  vlan_id = 100
+  name    = "server-vlan"
+}
+
+resource "aoscx_vlan_interface" "server_gateway" {
+  vlan_id = aoscx_vlan.servers.vlan_id
+}
+
+resource "aoscx_l3_interface" "server_svi" {
+  interface   = "vlan${aoscx_vlan.servers.vlan_id}"
+  admin_state = "up"
+  description = "Server network gateway"
+  ipv4        = ["10.100.1.1/24"]
+}
+```
+
+### Multiple Subnets on Single Interface
+
+```terraform
+resource "aoscx_l3_interface" "multi_subnet" {
+  interface   = "1/1/20"
+  admin_state = "up"
+  description = "Interface with multiple subnets"
+  ipv4        = [
+    "192.168.1.1/24",    # Primary subnet
+    "192.168.2.1/24",    # Secondary subnet
+    "192.168.3.1/24"     # Additional subnet
+  ]
+}
+```
+
+### Management Network
+
+```terraform
+resource "aoscx_l3_interface" "mgmt_network" {
+  interface   = "mgmt"
+  admin_state = "up"
+  description = "Out-of-band management"
+  ipv4        = ["10.0.0.10/24"]
+}
+```
+
+## Notes
+
+- The interface must exist as a physical interface before configuring Layer 3 properties
+- IPv4 addresses must be in valid CIDR notation (e.g., `"192.168.1.1/24"`)
+- IPv6 addresses must be in valid CIDR notation (e.g., `"2001:db8::1/64"`)
+- Multiple IP addresses can be assigned to a single interface for multi-homing scenarios
+- VRF assignment affects routing table membership and routing behavior
+- Changing IP addresses may cause brief connectivity interruption
+- Ensure proper routing configuration when using custom VRFs
+
+## Related Resources
+
+- [`aoscx_interface`](interface.md) - Configure basic physical interface properties
+- [`aoscx_vlan_interface`](vlan_interface.md) - Configure VLAN interfaces for Layer 3
+- [`aoscx_l2_interface`](l2_interface.md) - Configure Layer 2 interface settings
 
 <!-- schema generated by tfplugindocs -->
 ## Schema
