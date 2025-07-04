@@ -41,7 +41,7 @@ For local development and testing:
 
 ```bash
 # Clone the repository
-git clone https://github.com/aruba/terraform-provider-aoscx.git
+git clone https://github.com/felixn-unity/terraform-provider-aoscx.git
 cd terraform-provider-aoscx
 
 # Build the provider
@@ -113,7 +113,7 @@ provider "aoscx" {
 | `aoscx_vlan_interface` | Configure VLAN interfaces |
 | `aoscx_full_config` | Apply complete switch configurations |
 
-For detailed documentation on each resource, see the [docs](https://github.com/aruba/terraform-provider-aoscx/tree/master/docs) directory.
+For detailed documentation on each resource, see the [docs](https://github.com/felixn-unity/terraform-provider-aoscx/tree/master/docs) directory.
 
 ## Usage Examples
 
@@ -188,7 +188,7 @@ resource "aoscx_l3_interface" "management" {
 
 ```bash
 # Clone the repository
-git clone https://github.com/aruba/terraform-provider-aoscx.git
+git clone https://github.com/felixn-unity/terraform-provider-aoscx.git
 cd terraform-provider-aoscx
 
 # Install dependencies
@@ -224,9 +224,9 @@ TF_ACC=1 go test ./... -v
 
 ## Support
 
-- **Documentation**: [docs/](https://github.com/aruba/terraform-provider-aoscx/tree/master/docs)
-- **Issues**: [GitHub Issues](https://github.com/aruba/terraform-provider-aoscx/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/aruba/terraform-provider-aoscx/discussions)
+- **Documentation**: [docs/](https://github.com/felixn-unity/terraform-provider-aoscx/tree/master/docs)
+- **Issues**: [GitHub Issues](https://github.com/felixn-unity/terraform-provider-aoscx/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/felixn-unity/terraform-provider-aoscx/discussions)
 
 ## License
 

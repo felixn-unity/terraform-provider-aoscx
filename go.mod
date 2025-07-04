@@ -1,4 +1,4 @@
-module github.com/aruba/terraform-provider-aoscx
+module github.com/felixn-unity/terraform-provider-aoscx
 
 go 1.24.1
 
